@@ -9,9 +9,12 @@ For the sake of time, in some places/statements I have trusted AI's findings wit
 - Typical time of use tariff rates 
 - Reasonable defaults (FULL LIST OF DEFAULT TYPES ONCE CODE DONE)
 - That PVGIS is a reliable free dataset for how much a solar panel would produce and the outside temperature for an area
-- That 2021 is a good recent year close to long-run averages to use to get the data from the above. 
+- That 2023 is a good recent year close to long-run averages to use to get the data from the above. 
 - South-facing at 35 deg is a reasonable default for orientation
 - Typical usage curve
+
+
+- Using PVGIS by downloading the data - DOUBLE CHECK IN IT SAYING AN API REQUEST WOULDN'T WORK IN BROWSER AND ONLY IN NODE 
 
 
 ### Assumptions I have made
@@ -21,7 +24,7 @@ For the sake of time, in some places/statements I have trusted AI's findings wit
 
 ## Tradeoffs
 - Accuracy has been traded off for asking the user less questions; prioritised less friction to the installer/user over more accurate results. 
-- Hard-coded in one area for the PVGIS data for now; I am assuming that in the actual system, there would already be address data that would make making this more editable reasonable. TODO CHECK ON THIS, WHAT IS ACTUALLY EDITABLE FOR NOW?
+- Hard-coded in one area for the PVGIS data for now (London); I am assuming that in the actual system, there would already be address data that would make making this more editable reasonable. TODO CHECK ON THIS, WHAT IS ACTUALLY EDITABLE FOR NOW?
 
 ## Simplifications
 
@@ -35,4 +38,3 @@ For the sake of time, in some places/statements I have trusted AI's findings wit
 
 ## Improvements with more Time
 - APIs that give 
-
