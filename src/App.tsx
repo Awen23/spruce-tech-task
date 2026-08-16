@@ -31,7 +31,7 @@ const gbp = (n: number) => `${n < 0 ? '−' : ''}£${Math.abs(Math.round(n)).toL
 export default function App() {
   const [propertyId, setPropertyId] = useState(PROPERTIES[2].id);
   const [occupancy, setOccupancy] = useState<(typeof OCCUPANCIES)[number]['value']>('IN_HALF_DAY');
-  const [orientation, setOrientation] = useState(ORIENTATIONS[0].label);
+  const [orientation, setOrientation] = useState(HOUSE.orientation.label);
   const [tariffId, setTariffId] = useState(TIME_OF_USE_TARIFF.id);
   const [showAssumptions, setShowAssumptions] = useState(false);
 

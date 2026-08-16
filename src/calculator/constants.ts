@@ -81,6 +81,15 @@ export type Occupancy = 'HOME_ALL_DAY' | 'IN_HALF_DAY' | 'OUT_ALL_DAY';
  *  Values, for homes that are not electrically heated. */
 export const TDCV = { low: 1800, medium: 2700, high: 4100 };
 
+/** Roof output relative to a south-facing 35-degree roof, which is what the weather
+ *  snapshot assumes. MCS orientation factors for a 35-degree pitch. */
+export const ORIENTATIONS = [
+  { label: 'South', factor: 1.0 },
+  { label: 'South-east / south-west', factor: 0.94 },
+  { label: 'East / west', factor: 0.78 },
+  { label: 'North', factor: 0.48 },
+];
+
 export const HOUSE = {
   /** Household electricity excluding the heat pump: lights, fridge, appliances. */
   annualBaseloadKwh: TDCV.medium,
@@ -101,9 +110,9 @@ export const HOUSE = {
   /** Solar system size in kilowatt-peak. Typical UK domestic install. */
   kwp: 4.0,
 
-  /** Relative to an ideal south-facing 35-degree unshaded roof. 1.0 flatters most houses;
-   *  see ORIENTATIONS. */
-  orientationFactor: 1.0,
+  /** A good roof rather than a perfect one: most houses have two opposite planes, so one
+   *  is always within 90 degrees of south and gets the panels. */
+  orientation: ORIENTATIONS[1],
 };
 
 const NOMINAL_KWH = 5.0;
@@ -167,15 +176,6 @@ export const PROPERTIES = [
   { id: '2', address: '18 Alder Way, SW16', kind: '3-bed semi', epc: 'C', annualHeatKwh: 11000, annualBaseloadKwh: TDCV.medium },
   { id: '3', address: '27 Elm Row, N8', kind: '3-bed semi', epc: 'D', annualHeatKwh: 14000, annualBaseloadKwh: TDCV.medium },
   { id: '4', address: '9 Victoria Terrace, SE22', kind: 'Victorian terrace', epc: 'E', annualHeatKwh: 18000, annualBaseloadKwh: TDCV.high },
-];
-
-/** Roof output relative to a south-facing 35-degree roof, which is what the weather
- *  snapshot assumes. MCS orientation factors for a 35-degree pitch. */
-export const ORIENTATIONS = [
-  { label: 'South', factor: 1.0 },
-  { label: 'South-east / south-west', factor: 0.94 },
-  { label: 'East / west', factor: 0.78 },
-  { label: 'North', factor: 0.48 },
 ];
 
 /** Fully installed, at the one system size this models. Midpoints of UK 2026 ranges:

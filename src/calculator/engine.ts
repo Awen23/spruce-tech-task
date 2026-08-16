@@ -255,7 +255,7 @@ export function runScenarios(weather: Weather, options: Options = {}): Results {
     annualHeatKwh = HOUSE.annualHeatKwh,
     annualBaseloadKwh = HOUSE.annualBaseloadKwh,
     occupancy = HOUSE.occupancy,
-    orientationFactor = HOUSE.orientationFactor,
+    orientationFactor = HOUSE.orientation.factor,
   } = options;
 
   // Demand is the same in every option, so build it once.
