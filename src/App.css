@@ -1,38 +1,186 @@
-.App {
-  text-align: center;
+/* Spruce palette, taken from spruce.eco */
+:root {
+  --green: #227858;
+  --dark: #10392f;
+  --lime: #79db8e;
+  --ink: #111827;
+  --muted: #4b5563;
+  --line: #e5e7eb;
+  --radius: 13px;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+body {
+  margin: 0;
+  background: #f6f5f4;
+  color: var(--ink);
+  font-family: Manrope, Inter, system-ui, sans-serif;
+  line-height: 1.5;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.logo {
+  color: var(--green);
+  font-weight: 800;
+  font-size: 20px;
+}
+
+h1 {
+  font-size: 34px;
+  letter-spacing: -0.03em;
+  margin: 20px 0 8px;
+}
+
+h2 {
+  font-size: 17px;
+  margin: 0;
+}
+
+/* Every piece of small grey text */
+.sub,
+.meta,
+.blurb,
+.per,
+.fixed {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.sub {
+  max-width: 52ch;
+  margin: 0 0 32px;
+}
+
+/* White panels */
+.card,
+.assumptions {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+/* Two auto-fitting grids: the cards, and the editable inputs */
+.cards,
+.editable {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+/* Inputs */
+.field span {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.field select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  font: inherit;
+  color: var(--ink);
+}
+
+.meta {
+  margin: 8px 0 28px;
+}
+
+/* Result cards */
+.saving {
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--green);
+  margin: 0;
+}
+
+.blurb {
+  margin: 2px 0 16px;
+}
+
+.per {
+  margin: 0 0 16px;
+}
+
+.card dl {
+  margin: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  font-size: 13px;
+}
+
+.card dl div {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  justify-content: space-between;
+  padding: 3px 0;
 }
 
-.App-link {
-  color: #61dafb;
+.card dt {
+  color: var(--muted);
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.card dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.note {
+  background: var(--dark);
+  color: #e8f0ec;
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  font-size: 14px;
+  margin: 20px 0 32px;
+}
+
+.note strong,
+.note em {
+  color: var(--lime);
+  font-style: normal;
+}
+
+/* Assumptions */
+.toggle {
+  margin-top: 24px;
+  padding: 10px 18px;
+  border: 1px solid var(--green);
+  border-radius: 40px;
+  background: none;
+  color: var(--green);
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background: var(--green);
+  color: #fff;
+}
+
+.assumptions {
+  margin-top: 12px;
+}
+
+.fixed {
+  margin: 20px 0 0;
+  padding: 16px 0 0 18px;
+  border-top: 1px solid var(--line);
+}
+
+.fixed li {
+  margin-bottom: 6px;
 }

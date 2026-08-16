@@ -45,3 +45,4 @@ For the sake of time, in some places/statements I have trusted AI's findings wit
 
 TODO: 
 - i removed some stuff, make sure this doc still aligns to it 
+- i should probably not have the base as a dumb one, i think that might be one of the biggest differences now (the UI originally claimed it would cost £340 more to operate the heat pump on a flexible tariff, but i think you typically get put on a flexible tariff and it does smart stuff by default? which would mean i'm off by like £340 which is a lot of my battery calculations)

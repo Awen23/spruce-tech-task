@@ -90,10 +90,18 @@ export const BASE_TEMP_C = 15.5;
  */
 export type Occupancy = 'HOME_ALL_DAY' | 'IN_HALF_DAY' | 'OUT_ALL_DAY';
 
+/**
+ * Household electricity a year, by household size. Source: Ofgem Typical Domestic
+ * Consumption Values — the regulator's standard figures, used across the industry for
+ * comparing tariffs. They cover homes that are not electrically heated, which is what we
+ * want, since the heat pump is modelled separately.
+ */
+export const TDCV = { low: 1800, medium: 2700, high: 4100 };
+
 export const HOUSE = {
   /** Household electricity excluding the heat pump: lights, fridge, appliances.
-   *  Source: MCS MGD 003 documented fallback. */
-  annualBaseloadKwh: 3500,
+   *  Source: Ofgem Typical Domestic Consumption Values, medium band. See TDCV below. */
+  annualBaseloadKwh: TDCV.medium,
 
   /** Heat DELIVERED per year, not electricity consumed. Typical UK 3-bed semi.
    *  Weakest-sourced number here: real houses run from ~8,000 (well insulated) to
@@ -161,3 +169,49 @@ export const BASELOAD_SHAPES: Record<Occupancy, number[]> = {
 
 /** Non-leap year, so this never varies. */
 export const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+// ---------------------------------------------------------------------------
+// UI inputs
+// ---------------------------------------------------------------------------
+
+/**
+ * Example properties, standing in for records that would arrive from the installer's heat
+ * pump tool. All in London, because that is the only weather we hold.
+ *
+ * Heat demand is ESTIMATED — the real figure comes from the installer's heat-loss survey,
+ * and these are plausible values spread across the EPC bands. Stops at E: an F home
+ * insulates before it heat-pumps, and cannot claim the Boiler Upgrade Scheme grant while
+ * it has outstanding insulation recommendations.
+ *
+ * Household electricity is the Ofgem TDCV band for that size of home.
+ */
+export const PROPERTIES = [
+  { id: '1', address: '4 Meadow Court, E14', kind: 'New-build flat', epc: 'B', annualHeatKwh: 5000, annualBaseloadKwh: TDCV.low },
+  { id: '2', address: '18 Alder Way, SW16', kind: '3-bed semi', epc: 'C', annualHeatKwh: 11000, annualBaseloadKwh: TDCV.medium },
+  { id: '3', address: '27 Elm Row, N8', kind: '3-bed semi', epc: 'D', annualHeatKwh: 14000, annualBaseloadKwh: TDCV.medium },
+  { id: '4', address: '9 Victoria Terrace, SE22', kind: 'Victorian terrace', epc: 'E', annualHeatKwh: 18000, annualBaseloadKwh: TDCV.high },
+];
+
+/**
+ * Roof output relative to a south-facing 35-degree roof, which is what the weather
+ * snapshot assumes. Source: MCS orientation factors for a 35-degree pitch.
+ */
+export const ORIENTATIONS = [
+  { label: 'South', factor: 1.0 },
+  { label: 'South-east / south-west', factor: 0.94 },
+  { label: 'East / west', factor: 0.78 },
+  { label: 'North', factor: 0.48 },
+];
+
+/**
+ * Fully installed, for the one system size this tool models: HOUSE.kwp of solar and
+ * BATTERY.nominalKwh of storage. Flat totals rather than a rate per kWp, because install
+ * cost is mostly scaffolding, inverter and labour — a half-size system costs far more
+ * than half as much, so a per-unit rate would only be right at this size anyway.
+ *
+ * Sources: UK surveys put a 4 kWp system at £5,500-£8,000 in 2026 and a 5 kWh battery at
+ * £2,500-£4,000; these are the midpoints. Both assume the 0% VAT relief on domestic
+ * renewables, which is legislated to end 31 March 2027.
+ */
+export const SOLAR_INSTALL_GBP = 6500;
+export const BATTERY_INSTALL_GBP = 3000;
