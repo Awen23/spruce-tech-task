@@ -1,9 +1,4 @@
-/**
- * Every number the calculation uses, with its source.
- *
- * These all have to be defensible to a homeowner or an installer, so nothing here is a
- * guess without saying so.
- */
+/** Every number the calculation uses, with its source. Anything estimated says so. */
 
 /** 365 x 24. Every hourly array in the system is this long. */
 export const HOURS_PER_YEAR = 8760;
@@ -15,35 +10,34 @@ export const HOURS_PER_YEAR = 8760;
 export interface Tariff {
   id: string;
   name: string;
-  /** Paid per kWh sold back to the grid. Always well below the import price, which is
-   *  why using your own solar beats exporting it. */
+  /** Paid per kWh sold back. Well below the import price, which is why using your own
+   *  solar beats exporting it. Same on both tariffs: export is a separate contract, and
+   *  you may pick any of them whoever supplies your import. */
   exportRatePerKwh: number;
   /** Import price for each hour of the day. 24 entries, midnight first. */
   ratesPerKwh: number[];
 }
 
-/** Source: Ofgem price cap, 1 July - 30 September 2026. */
+/** Ofgem price cap, 1 July - 30 September 2026 (national average). */
 const CAP_RATE = 0.2611;
 
 export const FLAT_TARIFF: Tariff = {
   id: 'flat',
-  name: 'Standard variable (price cap)',
+  name: 'Standard tariff',
+  /** Octopus Outgoing Fixed, the rate since March 2026. SEG rates run 4-16.5p. */
   exportRatePerKwh: 0.12,
   ratesPerKwh: new Array(24).fill(CAP_RATE),
 };
 
-/**
- * Price changes through the day: cheap overnight and midday, expensive late afternoon.
- * Shape is typical of UK heat-pump tariffs; rates are indicative, not a real product.
- */
-const CHEAP = 0.1453;
-const MID = 0.3328;
-const PEAK = 0.5168;
+/** Octopus Cosy, London region, Q2 2026. Rates vary by region. */
+const CHEAP = 0.1307;
+const MID = 0.2663;
+const PEAK = 0.3995;
 
 export const TIME_OF_USE_TARIFF: Tariff = {
   id: 'tou',
-  name: 'Time-of-use (heat pump tariff)',
-  exportRatePerKwh: 0.15,
+  name: 'Time-of-use tariff',
+  exportRatePerKwh: 0.12,
   ratesPerKwh: [
     MID, MID, MID, MID, //       00:00 - 04:00
     CHEAP, CHEAP, CHEAP, //      04:00 - 07:00  cheap
@@ -62,94 +56,83 @@ export const TARIFFS = [FLAT_TARIFF, TIME_OF_USE_TARIFF];
 // ---------------------------------------------------------------------------
 
 /**
- * Heat delivered per unit of electricity consumed, averaged over a year. 11,000 kWh of
- * heat therefore costs 11,000 / 2.8 kWh of electricity.
- *
- * Source: ~2.8 is the median measured across real UK heat pump installations.
- *
- * Simplification: real efficiency drops on cold days, exactly when the pump runs hardest.
- * Modelling that hour by hour moved every headline figure by under 1%, so this is a flat
- * average.
+ * Heat delivered per unit of electricity consumed. 11,000 kWh of heat therefore costs
+ * 11,000 / 2.8 kWh of electricity. Median measured across UK installations.
  */
 export const SEASONAL_PERFORMANCE_FACTOR = 2.8;
 
 /**
- * Outdoor temperature above which a UK house needs no heating. Below it, heat demand is
- * proportional to how far below we are.
+ * Outdoor temperature above which a UK house needs no heating. CIBSE TM41's base for UK
+ * degree days: 19 C indoor less the ~3.5 C occupants, cooking and sunlight give free.
  *
- * Source: the base temperature MCS and CIBSE Guide A use for UK degree days. Below a
- * comfortable 19-21 C because occupants, cooking and sunlight supply the rest.
+ * Only sets the shape of the year, never the total, so it cannot move the bill.
  */
 export const BASE_TEMP_C = 15.5;
 
 /**
- * How much of the day the property is occupied. Definitions are MCS MGD 003 archetypes:
+ * How much of the day the property is occupied. MCS MGD 003 archetypes:
  *   HOME_ALL_DAY  someone is in between 9am and 5pm on weekdays
  *   IN_HALF_DAY   empty for half the day, either all morning or all afternoon
  *   OUT_ALL_DAY   typically empty on weekdays
  */
 export type Occupancy = 'HOME_ALL_DAY' | 'IN_HALF_DAY' | 'OUT_ALL_DAY';
 
-/**
- * Household electricity a year, by household size. Source: Ofgem Typical Domestic
- * Consumption Values — the regulator's standard figures, used across the industry for
- * comparing tariffs. They cover homes that are not electrically heated, which is what we
- * want, since the heat pump is modelled separately.
- */
+/** Household electricity a year, by household size. Ofgem Typical Domestic Consumption
+ *  Values, for homes that are not electrically heated. */
 export const TDCV = { low: 1800, medium: 2700, high: 4100 };
 
 export const HOUSE = {
-  /** Household electricity excluding the heat pump: lights, fridge, appliances.
-   *  Source: Ofgem Typical Domestic Consumption Values, medium band. See TDCV below. */
+  /** Household electricity excluding the heat pump: lights, fridge, appliances. */
   annualBaseloadKwh: TDCV.medium,
 
-  /** Heat DELIVERED per year, not electricity consumed. Typical UK 3-bed semi.
-   *  Weakest-sourced number here: real houses run from ~8,000 (well insulated) to
-   *  ~18,000 (solid wall Victorian), and this scales the heat pump linearly. */
+  /**
+   * Heat needed per year, not electricity drawn or gas burned. Scales the whole heat pump
+   * side of the model.
+   *
+   * ESTIMATED, and the weakest number here. A 3-bed semi, above the median home. In a real
+   * tool it would come off the EPC or from the installer's heat-loss figure — note that
+   * carries its own assumed weather year and indoor temperature, which must match ours.
+   */
   annualHeatKwh: 11000,
 
-  /** Used when the household's actual pattern is unknown.
-   *  Source: MCS MGD 003 default archetype. */
+  /** MCS MGD 003 default archetype, used when the real pattern is unknown. */
   occupancy: 'IN_HALF_DAY' as Occupancy,
 
   /** Solar system size in kilowatt-peak. Typical UK domestic install. */
   kwp: 4.0,
 
-  /** Roof output relative to an ideal south-facing 35-degree unshaded roof, which is what
-   *  the weather snapshot assumes. CHANGE FOR A MORE ACCURATE FIGURE — east or west is
-   *  around 0.78 and north around 0.48, so 1.0 flatters most real houses. */
+  /** Relative to an ideal south-facing 35-degree unshaded roof. 1.0 flatters most houses;
+   *  see ORIENTATIONS. */
   orientationFactor: 1.0,
 };
 
+const NOMINAL_KWH = 5.0;
+
 export const BATTERY = {
-  /** Capacity printed on the box. */
-  nominalKwh: 5.0,
+  /** Capacity on the box. A label only; the simulation uses usableKwh. */
+  nominalKwh: NOMINAL_KWH,
 
-  /** Share of that you may actually use — draining lithium flat damages it.
-   *  Source: MCS MGD 003 default for lithium. Gives 4.5 kWh usable. */
-  usableFraction: 0.9,
+  /** Draining lithium flat damages it. Industry typical, no standards body. */
+  usableKwh: NOMINAL_KWH * 0.9,
 
-  /** Put 10 kWh in, get 9 kWh out. The rest is lost as heat. */
+  /** Put 10 kWh in, get 9 out. Industry range is 85-92%, so this is the optimistic end. */
   roundTripEfficiency: 0.9,
 
-  /** Max kWh in or out per hour. */
-  powerKw: 3.0,
+  /** In or out. Chosen, and it never binds: anything above 2.5 fills the battery inside
+   *  a cheap window. */
+  maxKwhPerHour: 3.0,
 };
-
-/** Capacity actually available to the simulation. */
-export const USABLE_BATTERY_KWH = BATTERY.nominalKwh * BATTERY.usableFraction;
 
 // ---------------------------------------------------------------------------
 // Hourly and calendar data
 // ---------------------------------------------------------------------------
 
 /**
- * Household electricity by hour of day, excluding the heat pump. Relative weights — only
- * the shape is used; the total is scaled to the household's annual figure.
+ * Household electricity by hour of day, excluding the heat pump. Relative weights only;
+ * the total is scaled to the household's annual figure.
  *
- * ESTIMATED, and the weakest input in the model. The three differ across the middle of
- * the day, which is when solar generates. Daytime hours scaled to 70% once, to bring
- * self-consumption closer to the MCS MGD 003 tables.
+ * ESTIMATED. They differ across the middle of the day, which is when solar generates.
+ * Daytime hours scaled to 70% once, to bring self-consumption closer to MCS MGD 003.
  */
 export const BASELOAD_SHAPES: Record<Occupancy, number[]> = {
   HOME_ALL_DAY: [
@@ -167,23 +150,17 @@ export const BASELOAD_SHAPES: Record<Occupancy, number[]> = {
   ],
 };
 
-/** Non-leap year, so this never varies. */
-export const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
 // ---------------------------------------------------------------------------
 // UI inputs
 // ---------------------------------------------------------------------------
 
 /**
- * Example properties, standing in for records that would arrive from the installer's heat
- * pump tool. All in London, because that is the only weather we hold.
+ * Example properties, standing in for records arriving from the installer's tool. All
+ * London, because that is the only weather we hold.
  *
- * Heat demand is ESTIMATED — the real figure comes from the installer's heat-loss survey,
- * and these are plausible values spread across the EPC bands. Stops at E: an F home
- * insulates before it heat-pumps, and cannot claim the Boiler Upgrade Scheme grant while
- * it has outstanding insulation recommendations.
- *
- * Household electricity is the Ofgem TDCV band for that size of home.
+ * Heat demand is ESTIMATED. An EPC band cannot really give it — the band is a rating per
+ * square metre, so these quietly assume the house grows as the band worsens. Stops at E:
+ * an F home insulates first, and cannot claim the Boiler Upgrade Scheme grant until it has.
  */
 export const PROPERTIES = [
   { id: '1', address: '4 Meadow Court, E14', kind: 'New-build flat', epc: 'B', annualHeatKwh: 5000, annualBaseloadKwh: TDCV.low },
@@ -192,10 +169,8 @@ export const PROPERTIES = [
   { id: '4', address: '9 Victoria Terrace, SE22', kind: 'Victorian terrace', epc: 'E', annualHeatKwh: 18000, annualBaseloadKwh: TDCV.high },
 ];
 
-/**
- * Roof output relative to a south-facing 35-degree roof, which is what the weather
- * snapshot assumes. Source: MCS orientation factors for a 35-degree pitch.
- */
+/** Roof output relative to a south-facing 35-degree roof, which is what the weather
+ *  snapshot assumes. MCS orientation factors for a 35-degree pitch. */
 export const ORIENTATIONS = [
   { label: 'South', factor: 1.0 },
   { label: 'South-east / south-west', factor: 0.94 },
@@ -203,15 +178,7 @@ export const ORIENTATIONS = [
   { label: 'North', factor: 0.48 },
 ];
 
-/**
- * Fully installed, for the one system size this tool models: HOUSE.kwp of solar and
- * BATTERY.nominalKwh of storage. Flat totals rather than a rate per kWp, because install
- * cost is mostly scaffolding, inverter and labour — a half-size system costs far more
- * than half as much, so a per-unit rate would only be right at this size anyway.
- *
- * Sources: UK surveys put a 4 kWp system at £5,500-£8,000 in 2026 and a 5 kWh battery at
- * £2,500-£4,000; these are the midpoints. Both assume the 0% VAT relief on domestic
- * renewables, which is legislated to end 31 March 2027.
- */
-export const SOLAR_INSTALL_GBP = 6500;
-export const BATTERY_INSTALL_GBP = 3000;
+/** Fully installed, at the one system size this models. Midpoints of UK 2026 ranges:
+ *  £5,500-£8,000 for 4 kWp, £2,500-£4,000 for 5 kWh. Assumes the 0% VAT relief. */
+export const SOLAR_INSTALL_COST = 6500;
+export const BATTERY_INSTALL_COST = 3000;

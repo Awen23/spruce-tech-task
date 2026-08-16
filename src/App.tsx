@@ -5,8 +5,10 @@ import {
   ORIENTATIONS,
   PROPERTIES,
   SEASONAL_PERFORMANCE_FACTOR,
+  TARIFFS,
+  TIME_OF_USE_TARIFF,
 } from './calculator/constants';
-import { Kit, runScenarios, Scenario } from './calculator/engine';
+import { Kit, runScenarios } from './calculator/engine';
 import { londonWeather } from './calculator/weather';
 import './App.css';
 
@@ -30,6 +32,7 @@ export default function App() {
   const [propertyId, setPropertyId] = useState(PROPERTIES[2].id);
   const [occupancy, setOccupancy] = useState<(typeof OCCUPANCIES)[number]['value']>('IN_HALF_DAY');
   const [orientation, setOrientation] = useState(ORIENTATIONS[0].label);
+  const [tariffId, setTariffId] = useState(TIME_OF_USE_TARIFF.id);
   const [showAssumptions, setShowAssumptions] = useState(false);
 
   const property = PROPERTIES.find((p) => p.id === propertyId)!;
@@ -46,24 +49,15 @@ export default function App() {
     [property, occupancy, orientationFactor],
   );
 
-  /** The better of the two tariffs for a given kit. */
-  const best = (kit: Kit): Scenario =>
-    results.scenarios
-      .filter((s) => s.kit === kit)
-      .reduce((a, b) => (b.annualSavingGbp > a.annualSavingGbp ? b : a));
-
-  const doNothingOnTou = results.scenarios.find(
-    (s) => s.kit === 'nothing' && s.tariffId === 'tou',
-  )!;
+  const on = (kit: Kit) => results.scenarios.find((s) => s.kit === kit && s.tariffId === tariffId)!;
 
   return (
     <div className="page">
       <header>
-        <span className="logo">spruce</span>
         <h1>What could solar or a battery add?</h1>
         <p className="sub">
-          Savings on top of a heat pump, simulated hour by hour across a year of real
-          weather.
+          What solar and a battery would add to a heat pump install, simulated hour by hour
+          across a year of real weather.
         </p>
       </header>
 
@@ -79,18 +73,31 @@ export default function App() {
       </label>
 
       <p className="meta">
-        EPC {property.epc} · {property.annualHeatKwh.toLocaleString()} kWh of heat a year ·
-        currently paying <strong>{gbp(results.baselineCostGbp)}</strong> for electricity
+        Electricity today <strong>{gbp(results.baseline.household)}</strong> · heating adds{' '}
+        <strong>{gbp(results.baseline.heatPump)}</strong> · so{' '}
+        <strong>{gbp(results.baseline.total)}</strong> a year with the heat pump in.
       </p>
+
+      <div className="tariffs">
+        {TARIFFS.map((t) => (
+          <button
+            key={t.id}
+            className={t.id === tariffId ? 'on' : ''}
+            onClick={() => setTariffId(t.id)}
+          >
+            {t.name}
+          </button>
+        ))}
+      </div>
 
       <div className="cards">
         {CARDS.map(({ kit, title, blurb }) => {
-          const s = best(kit);
+          const s = on(kit);
           return (
             <div className="card" key={kit}>
               <h2>{title}</h2>
               <p className="blurb">{blurb}</p>
-              <p className="saving">{gbp(s.annualSavingGbp)}</p>
+              <p className="saving">{gbp(s.annualSaving)}</p>
               <p className="per">saved a year</p>
               <dl>
                 <div>
@@ -99,11 +106,7 @@ export default function App() {
                 </div>
                 <div>
                   <dt>Costs</dt>
-                  <dd>{gbp(s.installCostGbp)}</dd>
-                </div>
-                <div>
-                  <dt>Best on</dt>
-                  <dd>{s.tariffId === 'tou' ? 'Time-of-use' : 'Standard'}</dd>
+                  <dd>{gbp(s.installCost)}</dd>
                 </div>
               </dl>
             </div>
@@ -112,12 +115,9 @@ export default function App() {
       </div>
 
       <p className="note">
-        Each card shows whichever tariff suits that kit best, which is why they differ. A
-        time-of-use tariff only pays if something moves electricity off the late-afternoon
-        peak — here, the battery. We assume the heat pump is <em>not</em> smart-scheduled,
-        so on its own it runs hardest through the peak and the same tariff costs{' '}
-        <strong>{gbp(-doNothingOnTou.annualSavingGbp)}</strong> more a year. A controlled
-        heat pump would close much of that gap; we don't model one.
+        A time-of-use tariff prices each hour differently — 13p in three cheap windows, 40p
+        from 16:00 to 19:00. That spread is the only thing a battery earns from: buy cheap,
+        cover the peak. On a standard tariff every hour costs the same, so it saves nothing.
       </p>
 
       <button className="toggle" onClick={() => setShowAssumptions(!showAssumptions)}>
@@ -150,9 +150,14 @@ export default function App() {
           </div>
 
           <ul className="fixed">
+            <li>
+              EPC {property.epc}, {property.annualHeatKwh.toLocaleString()} kWh of heat a
+              year, a {HOUSE.kwp} kWp roof and a {BATTERY.nominalKwh} kWh battery.
+            </li>
             <li>Weather is London, 2023 — a typical year, not a sunny one.</li>
             <li>Heat pump efficiency is a flat {SEASONAL_PERFORMANCE_FACTOR}, the UK field average.</li>
-            <li>The heat pump is not smart-scheduled; it heats whenever the house is cold.</li>
+            <li>The house is held at one temperature all year.</li>
+            <li>Nothing shifts to dodge the expensive hours — not the heating, not appliances.</li>
             <li>Household electricity is {property.annualBaseloadKwh.toLocaleString()} kWh a year, on an estimated daily shape.</li>
             <li>The battery charges whenever electricity is cheapest, with no limit on wear.</li>
             <li>First-year savings only — no price rises, degradation or standing charges.</li>

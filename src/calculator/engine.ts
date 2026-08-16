@@ -6,28 +6,25 @@
  *   3. Apply a tariff to what was bought and sold
  *   4. Run all four kit options on both tariffs and compare
  *
- * All four options include the heat pump, "nothing" included, so a saving means "what
- * adding solar and/or a battery saves a home that already has one".
+ * The heat pump is being installed either way, so every option includes it, "nothing"
+ * included. A saving is therefore what solar and/or a battery add to that install.
  *
- * Hourly rather than annual totals because solar peaks in summer and heating in winter,
- * because solar is worth 26p used now against 12p exported, and because a battery's
- * charge depends on every hour before it.
+ * Hourly rather than annual totals: solar peaks in summer and heating in winter, solar is
+ * worth more used than exported, and a battery depends on every hour before it.
  */
 
 import {
   BASE_TEMP_C,
   BASELOAD_SHAPES,
   BATTERY,
-  BATTERY_INSTALL_GBP,
-  SOLAR_INSTALL_GBP,
-  DAYS_PER_MONTH,
+  BATTERY_INSTALL_COST,
+  SOLAR_INSTALL_COST,
   HOURS_PER_YEAR,
   HOUSE,
   Occupancy,
   SEASONAL_PERFORMANCE_FACTOR,
   TARIFFS,
   Tariff,
-  USABLE_BATTERY_KWH,
 } from './constants';
 import { Weather } from './weather';
 
@@ -50,17 +47,13 @@ export function baseloadProfile(annualKwh: number, occupancy: Occupancy): Hourly
 }
 
 /**
- * Electricity the heat pump consumes each hour.
+ * Electricity the heat pump consumes each hour. Demand is proportional to how far the
+ * outdoor temperature falls below BASE_TEMP_C — the "degree day" approach — so the shape
+ * comes from real weather and the total from the heat-loss figure.
  *
- * Demand is proportional to how far the outdoor temperature falls below BASE_TEMP_C (the
- * "degree day" approach), scaled so the year totals the heat required divided by the heat
- * pump's efficiency. So the pattern comes from real weather and the total from a
- * heat-loss survey.
- *
- * No daily shape on top. The outdoor temperature already carries the daily cycle, so a
- * shape mirroring it would count that twice. A thermostat schedule is a separate thing,
- * and we assume a constant indoor target — reasonable for a heat pump, which is usually
- * run steady rather than set back overnight.
+ * The house is taken to be exactly on temperature every hour, so only the loss is worked
+ * out. Nothing tracks how warm it actually is: no drifting down once the heating stops,
+ * and no cost to warming it back up.
  */
 export function heatPumpProfile(annualHeatKwh: number, outdoorTempC: Hourly): Hourly {
   // Degrees below the base temperature. Zero when it is mild enough to need no heating.
@@ -75,19 +68,10 @@ export function heatPumpProfile(annualHeatKwh: number, outdoorTempC: Hourly): Ho
   return weights.map((w) => (annualElecKwh * w) / weightTotal);
 }
 
-/** Solar generated each hour. PVGIS gives watts per kWp, and a row is an hour. */
+/** Solar generated each hour. PVGIS gives watts per kWp (kilowatt-peak, the array's rated
+ *  size), and a row is an hour, so watts / 1000 is that hour's kWh per kWp. */
 export function generationProfile(weather: Weather, kwp: number, orientation: number): Hourly {
   return weather.wattsPerKwp.map((watts) => (watts / 1000) * kwp * orientation);
-}
-
-/** Collapse 8,760 hourly values into 12 monthly totals. */
-export function monthlyTotals(hourly: Hourly): number[] {
-  let hour = 0; // walks straight through the year, month by month
-  return DAYS_PER_MONTH.map((days) => {
-    let sum = 0;
-    for (let i = 0; i < days * 24; i++) sum += hourly[hour++];
-    return sum;
-  });
 }
 
 /** Build a full year by calling valueAt() for each hour. */
@@ -133,53 +117,62 @@ export function simulate(
 ): EnergyFlows {
   const importByHour: Hourly = new Array(HOURS_PER_YEAR).fill(0);
   const exportByHour: Hourly = new Array(HOURS_PER_YEAR).fill(0);
-  const { powerKw, roundTripEfficiency: efficiency } = BATTERY;
-  // Charging loses energy, so filling the remaining room draws more than the room.
-  const drawToFill = (held: number) => (USABLE_BATTERY_KWH - held) / efficiency;
+  const { usableKwh, maxKwhPerHour, roundTripEfficiency: efficiency } = BATTERY;
+  // How much to pull in to fill the battery — more than the empty space, since only 90%
+  // of what goes in survives the trip. 2.5 kWh of room needs 2.78 kWh drawn.
+  const drawNeededToFill = (held: number) => (usableKwh - held) / efficiency;
 
-  let charge = 0; // kWh in the battery right now — the only state carried between hours
+  let stored = 0; // kWh in the battery — the only state carried between hours
   let generationKwh = 0;
   let importedKwh = 0;
   let exportedKwh = 0;
   let lossesKwh = 0;
 
+  // Each hour, two running remainders shrink as the steps below account for them.
   for (let hour = 0; hour < HOURS_PER_YEAR; hour++) {
-    let surplus = generation[hour]; // solar not yet spoken for
-    let unmet = demand[hour]; // demand not yet met
-    generationKwh += surplus;
+    let unusedSolar = generation[hour];
+    let unmetDemand = demand[hour];
+    generationKwh += unusedSolar;
 
     // 1. Solar straight to demand, capped by whichever of the two runs out first.
-    const direct = Math.min(surplus, unmet);
-    surplus -= direct;
-    unmet -= direct;
+    const direct = Math.min(unusedSolar, unmetDemand);
+    unusedSolar -= direct;
+    unmetDemand -= direct;
 
     if (hasBattery) {
-      // 2. Leftover solar into the battery, limited by charge rate and space left.
-      const fromSolar = Math.max(0, Math.min(surplus, powerKw, drawToFill(charge)));
-      charge += fromSolar * efficiency; // only what survives the round trip lands
+      // 2. Leftover solar into the battery. Whichever runs out first: the solar, the
+      //    charge rate, or the space. (max(0) is floating-point dust, not a real case.)
+      const fromSolar = Math.max(
+        0,
+        Math.min(unusedSolar, maxKwhPerHour, drawNeededToFill(stored)),
+      );
+      stored += fromSolar * efficiency; // only what survives the round trip lands
       lossesKwh += fromSolar * (1 - efficiency);
-      surplus -= fromSolar;
+      unusedSolar -= fromSolar;
 
       if (gridChargeHours[hour % 24]) {
         // 3. Cheap hour: top up from the grid with whatever charge rate solar left over.
-        const fromGrid = Math.max(0, Math.min(powerKw - fromSolar, drawToFill(charge)));
-        charge += fromGrid * efficiency;
+        const fromGrid = Math.max(
+          0,
+          Math.min(maxKwhPerHour - fromSolar, drawNeededToFill(stored)),
+        );
+        stored += fromGrid * efficiency;
         lossesKwh += fromGrid * (1 - efficiency);
         importedKwh += fromGrid; // bought, but it serves demand later, not now
         importByHour[hour] += fromGrid;
       } else {
         // 4. Otherwise discharge to cover demand. Never in the same hour as step 3.
-        const discharge = Math.max(0, Math.min(unmet, charge, powerKw));
-        charge -= discharge; // discharge is one-for-one, the loss was taken on the way in
-        unmet -= discharge;
+        const discharge = Math.max(0, Math.min(unmetDemand, stored, maxKwhPerHour));
+        stored -= discharge; // one-for-one: the loss was taken on the way in
+        unmetDemand -= discharge;
       }
     }
 
     // 5. Settle up with the grid: buy the shortfall, sell the leftover.
-    importedKwh += unmet;
-    importByHour[hour] += unmet;
-    exportedKwh += surplus;
-    exportByHour[hour] = surplus;
+    importedKwh += unmetDemand;
+    importByHour[hour] += unmetDemand;
+    exportedKwh += unusedSolar;
+    exportByHour[hour] = unusedSolar;
   }
 
   return {
@@ -187,7 +180,7 @@ export function simulate(
     importedKwh,
     exportedKwh,
     lossesKwh,
-    finalChargeKwh: charge,
+    finalChargeKwh: stored,
     importByHour,
     exportByHour,
   };
@@ -198,12 +191,8 @@ export function simulate(
 // ---------------------------------------------------------------------------
 
 /**
- * Hours the battery should charge from the grid: those at the cheapest rate. Charging
- * whenever the price is below the day's average would pick the same hours for these
- * tariffs, so the simple rule costs nothing.
- *
- * All-false when the price never changes — on a flat tariff, shifting electricity through
- * time earns nothing and loses the round-trip.
+ * Hours the battery should charge from the grid: those at the cheapest rate. All-false on
+ * a flat tariff, where shifting electricity through time earns nothing.
  */
 export function gridChargeHours(tariff: Tariff): boolean[] {
   const cheapest = Math.min(...tariff.ratesPerKwh);
@@ -212,7 +201,7 @@ export function gridChargeHours(tariff: Tariff): boolean[] {
   return tariff.ratesPerKwh.map((rate) => rate === cheapest);
 }
 
-/** Annual cost: what was imported, less what was earned exporting. */
+/** Annual cost: what was imported, minus what was earned exporting. */
 export function priceFlows(flows: EnergyFlows, tariff: Tariff): number {
   let cost = 0;
   for (let hour = 0; hour < HOURS_PER_YEAR; hour++) {
@@ -232,28 +221,27 @@ export interface Scenario {
   kit: Kit;
   tariffId: string;
   tariffName: string;
-  annualCostGbp: number;
+  annualCost: number;
   /** Against the baseline: this home, flat tariff, no solar, no battery. Negative means
    *  the option costs more than doing nothing. */
-  annualSavingGbp: number;
-  installCostGbp: number;
+  annualSaving: number;
+  installCost: number;
   /** Undefined when the option saves nothing, so never pays back. */
   paybackYears?: number;
 }
 
 export interface Results {
-  /** What the household pays today. Every saving is measured against this. */
-  baselineCostGbp: number;
+  /** This home once the heat pump is in, on the standard tariff, with no solar or
+   *  battery. Savings measure against the total. Splits cleanly, since with no solar or
+   *  battery every kWh of demand is simply bought at that hour's rate. */
+  baseline: { total: number; heatPump: number; household: number };
   /** Every kit option against every tariff. */
   scenarios: Scenario[];
-  /** 12 values each. Nearly inverted across the year. */
-  monthly: { generationKwh: number[]; heatPumpKwh: number[] };
-  annual: { generationKwh: number; heatPumpKwh: number; baseloadKwh: number };
 }
 
 const NEVER = new Array(24).fill(false);
 
-/** Anything the caller may vary. Everything else comes from HOUSE. */
+/** Overrides for HOUSE. Anything omitted falls back to it. */
 export interface Options {
   annualHeatKwh?: number;
   annualBaseloadKwh?: number;
@@ -279,46 +267,40 @@ export function runScenarios(weather: Weather, options: Options = {}): Results {
   const noGeneration: Hourly = new Array(HOURS_PER_YEAR).fill(0);
 
   // The one fixed reference point: this house on the flat tariff with no kit.
-  const baselineCostGbp = priceFlows(simulate(noGeneration, demand, false, NEVER), TARIFFS[0]);
+  const billFor = (profile: Hourly) =>
+    priceFlows(simulate(noGeneration, profile, false, NEVER), TARIFFS[0]);
+  const baseline = {
+    total: billFor(demand),
+    heatPump: billFor(heatPump),
+    household: billFor(baseload),
+  };
 
   const scenarios: Scenario[] = [];
 
   for (const tariff of TARIFFS) {
-    const cheapHours = gridChargeHours(tariff); // empty for a flat tariff
+    const cheapHours = gridChargeHours(tariff); // false for flat, otherwise true for cheapest-only
 
     const kits: [Kit, Hourly, boolean, number][] = [
       ['nothing', noGeneration, false, 0],
-      ['battery', noGeneration, true, BATTERY_INSTALL_GBP],
-      ['solar', generation, false, SOLAR_INSTALL_GBP],
-      ['solarAndBattery', generation, true, SOLAR_INSTALL_GBP + BATTERY_INSTALL_GBP],
+      ['battery', noGeneration, true, BATTERY_INSTALL_COST],
+      ['solar', generation, false, SOLAR_INSTALL_COST],
+      ['solarAndBattery', generation, true, SOLAR_INSTALL_COST + BATTERY_INSTALL_COST],
     ];
 
-    for (const [kit, gen, hasBattery, installCostGbp] of kits) {
-      const annualCostGbp = priceFlows(simulate(gen, demand, hasBattery, cheapHours), tariff);
-      const annualSavingGbp = baselineCostGbp - annualCostGbp;
+    for (const [kit, gen, hasBattery, installCost] of kits) {
+      const annualCost = priceFlows(simulate(gen, demand, hasBattery, cheapHours), tariff);
+      const annualSaving = baseline.total - annualCost;
       scenarios.push({
         kit,
         tariffId: tariff.id,
         tariffName: tariff.name,
-        annualCostGbp,
-        annualSavingGbp,
-        installCostGbp,
-        paybackYears: annualSavingGbp > 0 ? installCostGbp / annualSavingGbp : undefined,
+        annualCost,
+        annualSaving,
+        installCost,
+        paybackYears: annualSaving > 0 ? installCost / annualSaving : undefined,
       });
     }
   }
 
-  return {
-    baselineCostGbp,
-    scenarios,
-    monthly: {
-      generationKwh: monthlyTotals(generation),
-      heatPumpKwh: monthlyTotals(heatPump),
-    },
-    annual: {
-      generationKwh: total(generation),
-      heatPumpKwh: total(heatPump),
-      baseloadKwh: total(baseload),
-    },
-  };
+  return { baseline, scenarios };
 }

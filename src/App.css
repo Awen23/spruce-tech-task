@@ -27,16 +27,10 @@ body {
   padding: 48px 24px 80px;
 }
 
-.logo {
-  color: var(--green);
-  font-weight: 800;
-  font-size: 20px;
-}
-
 h1 {
   font-size: 34px;
   letter-spacing: -0.03em;
-  margin: 20px 0 8px;
+  margin: 0 0 8px;
 }
 
 h2 {
@@ -76,6 +70,7 @@ h2 {
   gap: 16px;
 }
 
+
 /* Inputs */
 .field span {
   display: block;
@@ -95,7 +90,36 @@ h2 {
 }
 
 .meta {
-  margin: 8px 0 28px;
+  margin: 4px 0;
+}
+
+/* Tariff switch: two buttons in a pill, one lit. Sits right, above the cards. */
+.tariffs {
+  display: flex;
+  width: fit-content;
+  gap: 4px;
+  margin: 24px 0 12px auto;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 40px;
+}
+
+.tariffs button {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 40px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tariffs button.on {
+  background: var(--green);
+  color: #fff;
 }
 
 /* Result cards */

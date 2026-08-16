@@ -12,7 +12,6 @@ import {
   generationProfile,
   gridChargeHours,
   heatPumpProfile,
-  monthlyTotals,
   runScenarios,
   simulate,
 } from './engine';
@@ -42,6 +41,7 @@ describe('hourly curves', () => {
     expect(Math.max(...warmHours)).toBe(0);
   });
 
+
   it('peak household electricity in the evening, not the morning', () => {
     const day = baseload.slice(0, 24);
     expect(Math.max(...day.slice(16, 21))).toBeGreaterThan(Math.max(...day.slice(6, 10)));
@@ -68,10 +68,13 @@ describe('hourly curves', () => {
     expect(sum(generationProfile(weather, 4, 0.5))).toBeCloseTo(sum(generation) * 0.5, 6);
   });
 
-  it('split into 12 months that add back up', () => {
-    const months = monthlyTotals(baseload);
-    expect(months).toHaveLength(12);
-    expect(sum(months)).toBeCloseTo(HOUSE.annualBaseloadKwh, 6);
+  it('are inverted across the year — solar peaks in summer, heating in winter', () => {
+    const JANUARY = [0, 744]; // hours into the year
+    const JULY = [4344, 5088];
+    const across = (profile: number[], [from, to]: number[]) => sum(profile.slice(from, to));
+
+    expect(across(generation, JULY)).toBeGreaterThan(across(generation, JANUARY));
+    expect(across(heatPump, JANUARY)).toBeGreaterThan(across(heatPump, JULY));
   });
 });
 
@@ -132,24 +135,15 @@ describe('scenarios', () => {
   });
 
   it('saves exactly nothing with a battery on a flat tariff', () => {
-    expect(get('battery', FLAT_TARIFF.id).annualSavingGbp).toBe(0);
+    expect(get('battery', FLAT_TARIFF.id).annualSaving).toBe(0);
   });
 
   it('makes a battery worthwhile only on a time-of-use tariff', () => {
-    expect(get('battery', TIME_OF_USE_TARIFF.id).annualSavingGbp).toBeGreaterThan(300);
+    expect(get('battery', TIME_OF_USE_TARIFF.id).annualSaving).toBeGreaterThan(300);
   });
 
   it('makes solar worthwhile on both tariffs', () => {
-    expect(get('solar', FLAT_TARIFF.id).annualSavingGbp).toBeGreaterThan(0);
-    expect(get('solar', TIME_OF_USE_TARIFF.id).annualSavingGbp).toBeGreaterThan(0);
-  });
-
-  it('finds solar and heat pump demand inverted across the year', () => {
-    const { generationKwh, heatPumpKwh } = results.monthly;
-    const peakSolar = generationKwh.indexOf(Math.max(...generationKwh));
-    const peakHeat = heatPumpKwh.indexOf(Math.max(...heatPumpKwh));
-    expect(peakSolar).toBeGreaterThanOrEqual(3); // spring or summer
-    expect(peakSolar).toBeLessThanOrEqual(7);
-    expect(peakHeat === 0 || peakHeat === 11).toBe(true); // January or December
+    expect(get('solar', FLAT_TARIFF.id).annualSaving).toBeGreaterThan(0);
+    expect(get('solar', TIME_OF_USE_TARIFF.id).annualSaving).toBeGreaterThan(0);
   });
 });
