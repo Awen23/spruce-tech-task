@@ -6,68 +6,44 @@ The general approach is to simulate the system hour-by-hour in order to calculat
 
 ## Assumptions
 
-Assumptions on the location of the calculator within the larger system: 
+### Assumptions on the location of the calculator within the larger system
 - The client hasn't necessarily specified an interest in solar at this point; this assumption means I haven't required any additional inputs so that the integration of the calculator doesn't cost the user unless they are interested. 
 - That we already have EPC data, or that we have already calculated equivalents where missing. Data assumed to be in this is: 
 	- Location (although currently everything is assumed to be in London)
 	- kWh of heat needed per year for heating 
 	- House sizes that could give reasonable base load kWh assumptions 
 
-General assumptions: 
-- I have largely assumed AI's sources to be as it reports for the sake of time, but I have got it to document its sources in comments as I went. 
+### General assumptions: 
+- I have largely assumed AI's sources to be as it reports for the sake of time, but I have got it to document its sources and its own assumptions when making guesstimates for particular values (largely in [src/calculator/constants.ts]). 
+- That PVGIS is a reasonable dataset for the purpose of how much a solar panel would produce and the outside temperature for an area. 
 - People or installers don't know roof orientation off the top of their head without having to think twice. 
-
-### Places I have assumed AI's correctness
-For the sake of time, in some places/statements I have trusted AI's findings without doing as much checking of the source as I would if I was preparing for a production environemnt under more time. These are: 
-- Typical flat tariff rates 
-- Typical time of use tariff rates 
-- Reasonable defaults (FULL LIST OF DEFAULT TYPES ONCE CODE DONE)
-- That PVGIS is a reliable free dataset for how much a solar panel would produce and the outside temperature for an area
-- That 2023 is a good recent year close to long-run averages to use to get the data from the above. 
-- South-facing at 35 deg is a reasonable default for orientation
-- Typical usage curves (guesstimated, then one iteration to get them closer to the MCS value tables % values)
-
-
-- Using PVGIS by downloading the data - DOUBLE CHECK IN IT SAYING AN API REQUEST WOULDN'T WORK IN BROWSER AND ONLY IN NODE 
-
-
-### Places I am suspicious of AI's assumption
-- The house being 3.5C warmer matching the same way EPC calculates it; it only affects when we consider the air source heat pump doesn't need to come on though, and a little effects the weightings over the year. 
-
-
-### Assumptions I have made
-- The user hasn't specified an interest in solar at this point; and so the calculations are a feeler for interest, rather than something they're willing to add extra information for. 
-- The installer doesn't know the roof orientation without having to think twice about it. 
-- In half the day as a default 
-- The EPC will contain the kWh needed per year for heating (or the data processed beforehand to produce the original heat pump estimation will)
 
 
 ## Tradeoffs
 - Assumptions have been made in place of asking additional questions; the largest affecting one being the roof orientation. 
-- Everything is currently assumed to be in London when it comes to the PVGIS data
 - In the solar + battery simulation; the battery charges from the grid if it's cheap energy, rather than waiting for solar. This (according to AI testing out the calculations) does lead to an increase in cost savings; but would effect CO2 savings if we were to add that to the system. 
+- Many values are guesstimated to save time, which saves me time but will lead to inaccuracies/assumptions that could be improved in places. 
 
 ## Simplifications
 
-- Everything is currently assumed to be in London when it comes to the PVGIS data; this is loaded in as a JSON to avoid having to deal with client-side API requests 
+- Everything is currently assumed to be in London when it comes to the PVGIS data; this is loaded in as a JSON to avoid making client-side API requests to their server. 
 - Heat pump isn't on a smart schedule; it uses one temperature throughout the whole day. Implementing this would mean less of a gap between battery & the cheapest way you can use a heat pump; but would also need more thought into how to present this message. 
-- Using same heat throughout the day, not taking into account that people may want a cooler temperature through the night. 
-- Only accounting for heating, not thinking about the potential of heat pumps that can cool & the energy that would take 
+- Using same heat as wanted house heat throughout the day, not taking into account that people may want a cooler temperature through the night. 
+- Only accounting for heating, not thinking about the potential of heat pumps that can cool & the energy that would take. 
 - Just using one tariff for the costs; not averaging over tariffs, showing a comparison, etc. 
-- Using an average COP value throughout the year rather than accounting for differences in efficiency; ASK TO CHECK IF IT STILL MAKES LESS THAN A 1% DIFFERENCE AS DURING QUICK CHECKS OF POSSIBLE SIMPLIFICATIONS EARLIER>?
+- Using an average COP value throughout the year rather than accounting for differences in efficiency throughout the year. 
+- Assuming there's no limit on how much batteries can be charged/discharged throughout the day. 
+- Not accounting for how charging/discharging behaviour in a battery affects long-term battery health. 
+- Assumption for the energy used throughout the year is quite simple, and is a hard-coded value based on the house. 
+- Assumption of one roof orientation to begin with (although editable by user)
 
-
-- Warranties on batteries potentially capping the number of times they can be charged was ignored 
 
 ## Improvements with more Time
+- Look up actual values/benchmark values to validate the calculation results against other's results to judge accuracy. 
 - APIs that give the solar orientation, rather than assuming the best 
 - Graphs to help the installer explain how the systems interact easier to the customer, e.g. 
 	- A graph of solar power generated vs heat pump energy usage ("Will this cover my heat pump usage?")
 	- A graph showing how the battery charges up and discharges through the day, along with how the tariff changes through the day ("Why does just a battery help?")
 - Fact-check the values and assumptions made
-- Seek out benchmarks/values to compare the calculated values against to judge their accuracy in practice 
 - Add in CO2 savings 
-
-
-TODO: 
-- i removed some stuff, make sure this doc still aligns to it 
+- Account for simplifications mentioned above
