@@ -11,7 +11,7 @@ For the sake of time, in some places/statements I have trusted AI's findings wit
 - That PVGIS is a reliable free dataset for how much a solar panel would produce and the outside temperature for an area
 - That 2023 is a good recent year close to long-run averages to use to get the data from the above. 
 - South-facing at 35 deg is a reasonable default for orientation
-- Typical usage curve
+- Typical usage curves (guesstimated, then one iteration to get them closer to the MCS value tables % values)
 
 
 - Using PVGIS by downloading the data - DOUBLE CHECK IN IT SAYING AN API REQUEST WOULDN'T WORK IN BROWSER AND ONLY IN NODE 
@@ -20,6 +20,7 @@ For the sake of time, in some places/statements I have trusted AI's findings wit
 ### Assumptions I have made
 - The user hasn't specified an interest in solar at this point; and so the calculations are a feeler for interest, rather than something they're willing to add extra information for. 
 - The installer doesn't know the roof orientation without having to think twice about it. 
+- In half the day as a default 
 
 
 ## Tradeoffs
@@ -34,7 +35,13 @@ For the sake of time, in some places/statements I have trusted AI's findings wit
 
 ### Chosen simplifications 
 - Ignore roof orientation for now; don't try to get a default value from address. TODO DID I END UP MAKING THIS EDITABLE FOR A MORE ACCURATE RESULT OR GIVING A RANGE? IF SO CHANGE THIS 
+- Not accounting for any cooling done in Summer by the heat pump
+- Not accounting for heat want changing throughout the day (e.g. wanting it to be cooler in the house at night vs day)
 
 
 ## Improvements with more Time
 - APIs that give 
+
+
+TODO: 
+- i removed some stuff, make sure this doc still aligns to it 
