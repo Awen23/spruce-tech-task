@@ -2,6 +2,7 @@
   "name": "spruce-tech-task",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://awen23.github.io/spruce-tech-task",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
